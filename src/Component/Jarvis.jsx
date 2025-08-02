@@ -1,27 +1,39 @@
 import React, { useEffect } from "react";
 import "./style.css";
-import { GoogleGenerativeAI } from "@google/generative-ai";
 
 const Jarvis = () => {
-  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  const SpeechRecognition =
+    window.SpeechRecognition || window.webkitSpeechRecognition;
   const recognition = new SpeechRecognition();
   recognition.lang = "en-US";
   recognition.continuous = false;
 
   useEffect(() => {
-    speak("Initializing Jarvis...", () => {
-      setTimeout(wish, 1000);
-    });
+    // Wait for voices to be loaded before speaking
+    const interval = setInterval(() => {
+      if (window.speechSynthesis.getVoices().length !== 0) {
+        clearInterval(interval);
+        speak("Initializing Jarvis...", () => {
+          setTimeout(wish, 1000);
+        });
+      }
+    }, 100);
+
+    return () => clearInterval(interval);
   }, []);
 
   const activate = () => {
-    speak("Jarvis activated, I'm listening...", () => {
+    speak("Initializing Jarvis. Jarvis activated, I'm listening...", () => {
       listen();
     });
   };
 
   const listen = () => {
-    recognition.start();
+    try {
+      recognition.start();
+    } catch (error) {
+      console.warn("Recognition already started.");
+    }
 
     recognition.onresult = async (event) => {
       const text = event.results[0][0].transcript.toLowerCase();
@@ -39,6 +51,7 @@ const Jarvis = () => {
 
   const speak = (text, callback) => {
     stopSpeaking();
+
     const utterance = new SpeechSynthesisUtterance(text);
     utterance.rate = 1;
     utterance.pitch = 1;
@@ -47,10 +60,10 @@ const Jarvis = () => {
     const setVoiceAndSpeak = () => {
       const voices = window.speechSynthesis.getVoices();
       utterance.voice =
-        voices.find(v =>
-          v.name.toLowerCase().includes("david") ||
-          v.name.toLowerCase().includes("alex") ||
-          v.name.toLowerCase().includes("male")
+        voices.find((v) =>
+          ["david", "alex", "male"].some((n) =>
+            v.name.toLowerCase().includes(n)
+          )
         ) || voices[0];
 
       if (callback) utterance.onend = callback;
@@ -74,7 +87,7 @@ const Jarvis = () => {
       youtube: "https://www.youtube.com",
       gmail: "https://mail.google.com",
       linkedin: "https://www.linkedin.com",
-      github: "https://github.com"
+      github: "https://github.com",
     };
 
     for (const key in apps) {
@@ -98,42 +111,38 @@ const Jarvis = () => {
     }
   };
 
- const gemini = async (prompt) => {
-  
-  try {
-    const result=await fetch("http://localhost:5000/chat",{
-      method:"POST",
-      headers:{
-        "content-type":"application/json"
-      },
-      body:JSON.stringify({prompt})
-    })
-    const data=await result.json();
-    const responseText =data.response;
-    console.log("🤖 Gemini:", responseText);
+  const gemini = async (prompt) => {
+    try {
+      const result = await fetch("https://server-0.onrender.com/chat", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({ prompt }),
+      });
+      const data = await result.json();
+      const responseText = data.response;
+      console.log("🤖 Gemini:", responseText);
 
-    // Trim long responses
-    const maxChars = 300;
-    let trimmed = responseText;
+      const maxChars = 300;
+      let trimmed = responseText;
 
-    if (responseText.length > maxChars) {
-      // Try sentence-based trimming
-      const sentences = responseText.split(".");
-      trimmed = "";
-      for (let sentence of sentences) {
-        if ((trimmed + sentence).length < maxChars) {
-          trimmed += sentence.trim() + ". ";
-        } else break;
+      if (responseText.length > maxChars) {
+        const sentences = responseText.split(".");
+        trimmed = "";
+        for (let sentence of sentences) {
+          if ((trimmed + sentence).length < maxChars) {
+            trimmed += sentence.trim() + ". ";
+          } else break;
+        }
       }
+
+      speak(trimmed.trim(), listen);
+    } catch (error) {
+      console.error("Gemini error:", error);
+      speak("Sorry, I couldn't understand that.", listen);
     }
-
-    speak(trimmed.trim(), listen);
-  } catch (error) {
-    console.error("Gemini error:", error);
-    speak("Sorry, I couldn't understand that.", listen);
-  }
-};
-
+  };
 
   return (
     <div className="jarvis-container">
@@ -146,8 +155,12 @@ const Jarvis = () => {
         height={250}
       />
       <br />
-      <button className="jarvis-button" onClick={activate}>Activate Jarvis</button>
-      <button className="jarvis-button" onClick={stopSpeaking}>Stop Voice</button>
+      <button className="jarvis-button" onClick={activate}>
+        Activate Jarvis
+      </button>
+      <button className="jarvis-button" onClick={stopSpeaking}>
+        Stop Voice
+      </button>
     </div>
   );
 };

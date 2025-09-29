@@ -113,7 +113,7 @@ const Jarvis = () => {
 
   const gemini = async (prompt) => {
     try {
-      const result = await fetch("https://server-0.onrender.com/chat", {
+      const result = await fetch("https://gemini-chatbot-server-1.onrender.com/chat", {
         method: "POST",
         headers: {
           "content-type": "application/json",
